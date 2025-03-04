@@ -514,6 +514,13 @@ function appendMessage(role, content, searchData = null, thinking = null) {
     messageEl.appendChild(messageContent);
     messagesContainer.appendChild(messageEl);
     
+    // Highlight code blocks
+    if (window.Prism) {
+        messageEl.querySelectorAll('pre code').forEach((block) => {
+            Prism.highlightElement(block);
+        });
+    }
+    
     // Scroll to the new message if auto-scroll is enabled
     if (shouldAutoScroll) {
         scrollToBottom();
@@ -549,7 +556,35 @@ function showTypingIndicator() {
 function formatMessage(text) {
     // Process code blocks with language support
     text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
-        return `<pre><code class="language-${lang || 'plaintext'}">${code.trim()}</code></pre>`;
+        const language = lang || 'plaintext';
+        const lines = code.trim().split('\n');
+        
+        // Create the code block header
+        const header = `
+            <div class="code-header">
+                <span class="code-language">${language}</span>
+                <button class="copy-button" onclick="copyCode(this)">
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                        <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                    </svg>
+                    <span>Copy</span>
+                </button>
+            </div>`;
+
+        // Process each line and preserve indentation
+        const linesHtml = lines.map(line => {
+            // Replace tabs with spaces for consistent indentation
+            const processedLine = line
+                .replace(/\t/g, '    ')  // Replace tabs with 4 spaces
+                .replace(/</g, '&lt;')   // Escape HTML
+                .replace(/>/g, '&gt;');  // Escape HTML
+            
+            return `<div class="line"><div class="line-content">${processedLine || ' '}</div></div>`;
+        }).join('');
+        
+        return `
+            <pre>${header}<code class="language-${language} code-with-lines">${linesHtml}</code></pre>`;
     });
     
     // Process inline code
@@ -1787,6 +1822,29 @@ function initModelSelectListeners() {
         card.addEventListener('click', cardListener);
     });
 }
+
+// Add this function to handle code copying
+window.copyCode = function(button) {
+    const pre = button.closest('pre');
+    const code = pre.querySelector('code');
+    const text = Array.from(code.querySelectorAll('.line-content'))
+        .map(line => line.textContent)
+        .join('\n');
+    
+    navigator.clipboard.writeText(text).then(() => {
+        const span = button.querySelector('span');
+        const originalText = span.textContent;
+        span.textContent = 'Copied!';
+        button.classList.add('copied');
+        
+        setTimeout(() => {
+            span.textContent = originalText;
+            button.classList.remove('copied');
+        }, 1000);
+    }).catch(err => {
+        console.error('Failed to copy code:', err);
+    });
+};
 
 // Initialize dev tools
 devTools.loadFromLocalStorage(); 
