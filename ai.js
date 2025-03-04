@@ -26,7 +26,7 @@ const fetchWithTimeout = (url, options = {}) => {
     const { timeout = 8000, ...fetchOptions } = options;
     return Promise.race([
         fetch(url, fetchOptions),
-        new Promise((_, reject) => 
+        new Promise((_, reject) =>
             setTimeout(() => reject(new Error('Request timed out')), timeout)
         )
     ]);
@@ -75,26 +75,26 @@ function initializeApp() {
     if (isIOS) {
         document.body.classList.add('ios-device');
     }
-    
+
     // Load saved settings
     loadSettings();
-    
+
     // Load saved conversations
     loadConversations();
-    
+
     // Check for session ID in URL path
     const pathSegments = window.location.pathname.split('/');
     const sessionId = pathSegments[pathSegments.length - 1];
-    
+
     // If we have a valid session ID in the URL, try to find a conversation with matching API session ID
-    if (sessionId && sessionId.length > 8 && sessionId !== 'kimi.html') {
+    if (sessionId && sessionId.length > 8 && sessionId !== 'ai.html') {
         // First try to find a conversation with matching Kimi chat ID
         const matchingByKimiChatId = conversations.find(conv => conv.kimiChatId === sessionId);
         if (matchingByKimiChatId) {
             loadConversation(matchingByKimiChatId.id, false); // Load without updating URL
             return;
         }
-        
+
         // Fallback to matching on conversation ID if needed
         const matchingById = conversations.find(conv => conv.id === sessionId);
         if (matchingById) {
@@ -102,7 +102,7 @@ function initializeApp() {
             return;
         }
     }
-    
+
     // If no valid session ID or conversation not found, load most recent or create new
     if (conversations.length === 0) {
         createNewConversation();
@@ -110,31 +110,31 @@ function initializeApp() {
         // Load the most recent conversation
         loadConversation(conversations[0].id, false); // Don't update URL for initial load
     }
-    
+
     // Add event listeners
     initEventListeners();
-    
+
     // Auto-resize textarea
     userInput.addEventListener('input', autoResizeTextarea);
-    
+
     // Handle scroll events
     messagesContainer.addEventListener('scroll', handleScroll);
-    
+
     // Update model badge
     updateModelBadge();
-    
+
     // Fix for iOS viewport height issues
     if (isIOS) {
         fixIOSViewportHeight();
         window.addEventListener('resize', fixIOSViewportHeight);
         window.addEventListener('orientationchange', fixIOSViewportHeight);
     }
-    
+
     // Check if server is available if proxy is enabled
     if (kimiConfig.useProxy) {
         checkServerAvailability();
     }
-    
+
     // Add a welcome message after a small delay for a better UX
     setTimeout(addWelcomeMessage, 100);
 }
@@ -150,19 +150,19 @@ function initEventListeners() {
     // User input events
     userInput.addEventListener('input', autoResizeTextarea);
     userInput.addEventListener('keydown', handleInputKeydown);
-    
+
     // Send button
     sendButton.addEventListener('click', handleSendMessage);
-    
+
     // Sidebar toggle
     mobileNavToggle.addEventListener('click', toggleSidebar);
     if (closeSidebarBtn) {
         closeSidebarBtn.addEventListener('click', toggleSidebar);
     }
-    
+
     // New chat button
     newChatBtn.addEventListener('click', createNewConversation);
-    
+
     // Suggestion chips - use touchend for iOS
     suggestionChips.forEach(chip => {
         if (isIOS) {
@@ -172,17 +172,17 @@ function initEventListeners() {
                 handleSendMessage();
             });
         } else {
-        chip.addEventListener('click', () => {
-            userInput.value = chip.textContent;
-            handleSendMessage();
-        });
+            chip.addEventListener('click', () => {
+                userInput.value = chip.textContent;
+                handleSendMessage();
+            });
         }
     });
-    
+
     // Settings modal events
     settingsBtn.addEventListener('click', openSettingsModal);
     closeModalBtns.forEach(btn => {
-        btn.addEventListener('click', function() {
+        btn.addEventListener('click', function () {
             const modal = this.closest('.modal');
             if (modal.id === 'settings-modal') {
                 closeSettingsModal();
@@ -191,42 +191,42 @@ function initEventListeners() {
             }
         });
     });
-    
+
     saveSettingsBtn.addEventListener('click', saveSettings);
     if (cancelSettingsBtn) {
         cancelSettingsBtn.addEventListener('click', closeSettingsModal);
     }
-    
+
     // Delete all chats button
     deleteAllBtn.addEventListener('click', openDeleteModal);
-    
+
     // Delete confirmation modal events
     if (cancelDeleteBtn) {
         cancelDeleteBtn.addEventListener('click', closeDeleteModal);
     }
     confirmDeleteBtn.addEventListener('click', deleteAllChats);
-    
+
     // Handle clicks outside sidebar on mobile
     document.addEventListener('click', (e) => {
-        if (sidebar.classList.contains('active') && 
-            !sidebar.contains(e.target) && 
+        if (sidebar.classList.contains('active') &&
+            !sidebar.contains(e.target) &&
             e.target !== mobileNavToggle) {
             toggleSidebar();
         }
     });
-    
+
     // Add popstate event listener for handling browser back/forward navigation
     window.addEventListener('popstate', handlePopState);
-    
+
     // Prevent iOS rubber-banding/bouncing effect
     if (isIOS) {
-        document.body.addEventListener('touchmove', function(e) {
+        document.body.addEventListener('touchmove', function (e) {
             if (e.target.closest('.messages-container, .conversation-list, .modal-body')) {
                 const scrollContainer = e.target.closest('.messages-container, .conversation-list, .modal-body');
                 const isAtTop = scrollContainer.scrollTop <= 0;
                 const isAtBottom = scrollContainer.scrollHeight - scrollContainer.scrollTop <= scrollContainer.clientHeight + 1;
-                
-                if ((isAtTop && e.touches[0].screenY > e.touches[0].screenY) || 
+
+                if ((isAtTop && e.touches[0].screenY > e.touches[0].screenY) ||
                     (isAtBottom && e.touches[0].screenY < e.touches[0].screenY)) {
                     e.preventDefault();
                 }
@@ -239,13 +239,13 @@ function initEventListeners() {
 function handleScroll() {
     // Calculate if we're at the bottom
     const isAtBottom = messagesContainer.scrollHeight - messagesContainer.scrollTop <= messagesContainer.clientHeight + 50;
-    
+
     // If user scrolled up manually, disable auto-scrolling
     if (!isAtBottom && !userScrolled) {
         userScrolled = true;
         shouldAutoScroll = false;
     }
-    
+
     // If user scrolled back to bottom, re-enable auto-scrolling
     if (isAtBottom && userScrolled) {
         userScrolled = false;
@@ -277,32 +277,32 @@ function createNewConversation() {
         created: new Date().toISOString(),
         kimiChatId: null // Add a field to store the Kimi chat ID
     };
-    
+
     // Add to conversations array
     conversations.unshift(newConversation);
-    
+
     // Save to localStorage
     saveConversations();
-    
+
     // Update the UI
     updateConversationsList();
-    
+
     // Reset chat and group IDs
     currentChatId = null;
     currentGroupId = null;
-    
-    // Update URL to remove any session parameter and just show kimi.html
+
+    // Update URL to remove any session parameter and just show ai.html
     const currentPath = window.location.pathname;
-    const basePath = currentPath.split('/').filter(segment => 
-        segment !== '' && !segment.includes('kimi.html') && segment.length < 20
+    const basePath = currentPath.split('/').filter(segment =>
+        segment !== '' && !segment.includes('ai.html') && segment.length < 20
     ).join('/');
-    
-    const newPath = basePath ? `/${basePath}/kimi.html` : `/kimi.html`;
+
+    const newPath = basePath ? `/${basePath}/ai.html` : `/ai.html`;
     window.history.pushState({}, '', newPath);
-    
+
     // Load the new conversation
     loadConversation(newConversation.id, false); // Don't update URL again since we just did
-    
+
     // Focus the input field - on iOS, delay focus to avoid keyboard issues
     if (isIOS) {
         setTimeout(() => userInput.focus(), 100);
@@ -316,22 +316,22 @@ function loadConversation(id, shouldUpdateUrl = true) {
     // Reset chat and group IDs when loading a new conversation
     currentChatId = null;
     currentGroupId = null;
-    
+
     // Find the conversation
     currentConversation = conversations.find(conv => conv.id === id);
-    
+
     if (!currentConversation) {
         console.error('Conversation not found:', id);
         // Create a new conversation if the requested one doesn't exist
         createNewConversation();
         return;
     }
-    
+
     // Update URL with session ID if requested and if this is not a new empty conversation
     if (shouldUpdateUrl && currentConversation.messages.length > 0) {
         updateUrlWithSessionId(currentConversation.kimiChatId || id);
     }
-    
+
     // Update active state in sidebar
     document.querySelectorAll('.conversation-item').forEach(item => {
         item.classList.remove('active');
@@ -339,10 +339,10 @@ function loadConversation(id, shouldUpdateUrl = true) {
             item.classList.add('active');
         }
     });
-    
+
     // Clear messages container
     messagesContainer.innerHTML = '';
-    
+
     // Add all messages to the container
     if (currentConversation.messages.length > 0) {
         currentConversation.messages.forEach(msg => {
@@ -352,16 +352,16 @@ function loadConversation(id, shouldUpdateUrl = true) {
         // Add welcome message if the conversation is empty
         setTimeout(addWelcomeMessage, 100);
     }
-    
+
     // Scroll to bottom
     scrollToBottom();
-    
+
     // Close sidebar on mobile after loading conversation
     if (window.innerWidth <= 768) {
         sidebar.classList.remove('active');
         document.body.classList.remove('sidebar-open');
     }
-    
+
     // Remove recommended prompts when loading a new conversation
     const existingPrompts = document.querySelector('.recommended-prompts');
     if (existingPrompts) existingPrompts.remove();
@@ -370,18 +370,18 @@ function loadConversation(id, shouldUpdateUrl = true) {
 // Helper function to update URL with session ID
 function updateUrlWithSessionId(sessionId) {
     if (!sessionId) return;
-    
+
     // Get the base path without any session ID
     const currentPath = window.location.pathname;
-    const basePath = currentPath.split('/').filter(segment => 
-        segment !== '' && !segment.includes('kimi.html') && segment.length < 20
+    const basePath = currentPath.split('/').filter(segment =>
+        segment !== '' && !segment.includes('ai.html') && segment.length < 20
     ).join('/');
-    
+
     // Construct the new path with session parameter
-    const newPath = basePath ? 
-        `/${basePath}/kimi.html?session=${sessionId}` : 
-        `/kimi.html?session=${sessionId}`;
-    
+    const newPath = basePath ?
+        `/${basePath}/ai.html?session=${sessionId}` :
+        `/ai.html?session=${sessionId}`;
+
     // Update URL with query parameter
     window.history.pushState({}, '', newPath);
 }
@@ -389,16 +389,16 @@ function updateUrlWithSessionId(sessionId) {
 // Update the conversation list in the sidebar
 function updateConversationsList() {
     conversationList.innerHTML = '';
-    
+
     conversations.forEach(conv => {
         const convEl = document.createElement('div');
         convEl.className = 'conversation-item';
         convEl.dataset.id = conv.id;
-        
+
         if (currentConversation && conv.id === currentConversation.id) {
             convEl.classList.add('active');
         }
-        
+
         convEl.innerHTML = `
             <span class="conversation-title">${conv.title}</span>
             <button class="delete-conversation" aria-label="Delete conversation">
@@ -408,19 +408,19 @@ function updateConversationsList() {
                 </svg>
             </button>
         `;
-        
+
         // Add click event for loading conversation
         convEl.addEventListener('click', (e) => {
             if (!e.target.closest('.delete-conversation')) {
                 loadConversation(conv.id);
             }
         });
-        
+
         // Add delete button event listener
         convEl.querySelector('.delete-conversation').addEventListener('click', (e) => {
             deleteConversation(conv.id, e);
         });
-        
+
         conversationList.appendChild(convEl);
     });
 }
@@ -429,11 +429,11 @@ function updateConversationsList() {
 function appendMessage(role, content) {
     const messageEl = document.createElement('div');
     messageEl.className = `message ${role}`;
-    
+
     // Create message content wrapper
     const messageContent = document.createElement('div');
     messageContent.className = 'message-content';
-    
+
     // Add role indicator for user messages
     if (role === 'user') {
         const roleIndicator = document.createElement('div');
@@ -441,13 +441,13 @@ function appendMessage(role, content) {
         roleIndicator.textContent = 'You';
         messageEl.appendChild(roleIndicator);
     }
-    
+
     // Format the content
     messageContent.innerHTML = formatMessage(content);
-    
+
     messageEl.appendChild(messageContent);
     messagesContainer.appendChild(messageEl);
-    
+
     // Scroll to the new message if auto-scroll is enabled
     if (shouldAutoScroll) {
         scrollToBottom();
@@ -468,13 +468,13 @@ function showTypingIndicator() {
             </div>
         </div>
     `;
-    
+
     // Add to messages container
     messagesContainer.appendChild(typingIndicator);
-    
+
     // Scroll to show the typing indicator
     scrollToBottom();
-    
+
     // Return the element so it can be removed later
     return typingIndicator;
 }
@@ -485,30 +485,30 @@ function formatMessage(text) {
     text = text.replace(/```(\w*)\n([\s\S]*?)```/g, (match, lang, code) => {
         return `<pre><code class="language-${lang || 'plaintext'}">${code.trim()}</code></pre>`;
     });
-    
+
     // Process inline code
     text = text.replace(/`([^`]+)`/g, '<code>$1</code>');
-    
+
     // Process bold text
     text = text.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-    
+
     // Process italic text
     text = text.replace(/\*(.*?)\*/g, '<em>$1</em>');
-    
+
     // Process links
     text = text.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
-    
+
     // Process lists
     text = text.replace(/^\s*[-*]\s+(.+)$/gm, '<li>$1</li>');
     text = text.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
-    
+
     // Process numbered lists
     text = text.replace(/^\s*(\d+)\.\s+(.+)$/gm, '<li>$2</li>');
     text = text.replace(/(<li>.*<\/li>)/s, '<ol>$1</ol>');
-    
+
     // Process blockquotes
     text = text.replace(/^\s*>\s*(.+)$/gm, '<blockquote>$1</blockquote>');
-    
+
     // Process headers
     text = text.replace(/^#{6}\s+(.+)$/gm, '<h6>$1</h6>');
     text = text.replace(/^#{5}\s+(.+)$/gm, '<h5>$1</h5>');
@@ -516,25 +516,25 @@ function formatMessage(text) {
     text = text.replace(/^#{3}\s+(.+)$/gm, '<h3>$1</h3>');
     text = text.replace(/^#{2}\s+(.+)$/gm, '<h2>$1</h2>');
     text = text.replace(/^#{1}\s+(.+)$/gm, '<h1>$1</h1>');
-    
+
     // Process tables
     text = text.replace(/\|(.+)\|/g, (match, content) => {
         const cells = content.split('|').map(cell => cell.trim());
         return `<tr>${cells.map(cell => `<td>${cell}</td>`).join('')}</tr>`;
     });
     text = text.replace(/(<tr>.*<\/tr>)/s, '<table>$1</table>');
-    
+
     // Process horizontal rules
     text = text.replace(/^---+$/gm, '<hr>');
-    
+
     // Process paragraphs (double newlines)
     text = text.replace(/\n\n/g, '</p><p>');
-    
+
     // Wrap in paragraph tags if not already wrapped
     if (!text.startsWith('<')) {
         text = `<p>${text}</p>`;
     }
-    
+
     return text;
 }
 
@@ -549,50 +549,50 @@ function scrollToBottom() {
 // Handle sending a message
 async function handleSendMessage() {
     const message = userInput.value.trim();
-    
+
     // Don't send empty messages
     if (!message || isProcessing) {
         return;
     }
-    
+
     // Disable input during processing
     isProcessing = true;
     userInput.disabled = true;
     sendButton.disabled = true;
-    
+
     // On iOS, blur the input to hide keyboard
     if (isIOS) {
         userInput.blur();
     }
-    
+
     // Clear the input field
     userInput.value = '';
     userInput.style.height = 'auto';
-    
+
     // Remove welcome message if it exists
     const welcomeMessage = messagesContainer.querySelector('.welcome-message');
     if (welcomeMessage) {
         welcomeMessage.remove();
     }
-    
+
     // Add user message to UI
     appendMessage('user', message);
-    
+
     // Add to conversation
     if (!currentConversation) {
         createNewConversation();
     }
-    
+
     currentConversation.messages.push({
         role: 'user',
         content: message
     });
-        
+
     // Update conversation title if this is the first message
     if (currentConversation.messages.length === 1) {
         currentConversation.title = message.length > 30 ? message.substring(0, 30) + '...' : message;
         updateConversationsList();
-        
+
         // Create a new chat session with Kimi API for first message
         try {
             const chatId = await createKimiChatSession(message);
@@ -610,42 +610,42 @@ async function handleSendMessage() {
         // If not the first message and we have a chat ID, update URL
         updateUrlWithSessionId(currentChatId);
     }
-        
+
     // Save to localStorage
     saveConversations();
-    
+
     // Show typing indicator
     const typingIndicator = showTypingIndicator();
-    
+
     try {
         // Send to Kimi API
         await sendToKimi(message, typingIndicator);
     } catch (error) {
         console.error('Error during Kimi communication:', error);
-        
+
         // Remove typing indicator
         if (typingIndicator.parentNode) {
             messagesContainer.removeChild(typingIndicator);
         }
-        
+
         // Add error message
         appendMessage('assistant', 'I apologize, but there was an error processing your request. Please try again later.');
-        
+
         // Add to conversation
         currentConversation.messages.push({
             role: 'assistant',
             content: 'I apologize, but there was an error processing your request. Please try again later.'
         });
-                
+
         // Save conversation with error
         saveConversations();
     }
-    
+
     // Re-enable input
     isProcessing = false;
     userInput.disabled = false;
     sendButton.disabled = false;
-    
+
     // On mobile, focus with a delay to avoid iOS issues
     if (window.innerWidth > 768 || !isIOS) {
         userInput.focus();
@@ -655,10 +655,10 @@ async function handleSendMessage() {
 // Create a new chat session with Kimi API
 async function createKimiChatSession(firstMessage) {
     try {
-        const endpoint = kimiConfig.useProxy ? 
-            `${kimiConfig.proxyEndpoint}/chat` : 
+        const endpoint = kimiConfig.useProxy ?
+            `${kimiConfig.proxyEndpoint}/chat` :
             `${kimiConfig.apiBaseUrl}/chat`;
-    
+
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': kimiConfig.authorization,
@@ -669,44 +669,46 @@ async function createKimiChatSession(firstMessage) {
             'x-language': 'en-US',
             'r-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
         };
-        
+
         const payload = {
             "name": firstMessage.length > 30 ? firstMessage.substring(0, 30) + '...' : firstMessage,
             "born_from": "chat",
             "model": kimiConfig.model === 'k1' ? 'k1' : 'kimi',
             "source": "web",
+            "use_research": kimiConfig.useResearch,
+            "use_search": kimiConfig.useSearch,
             "messages": [{
                 "role": "user",
                 "content": firstMessage
             }]
         };
-        
+
         const response = await fetchWithTimeout(endpoint, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(payload),
             timeout: 10000
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`Failed to create chat session: ${response.status} - ${errorText}`);
         }
-        
+
         const data = await response.json();
-        
+
         // Store both chat_id and group_id
         currentChatId = data.conversation_id || data.id;
         currentGroupId = data.group_id;
-        
+
         // Update the URL with the API-provided chat ID
         if (currentChatId) {
             updateUrlWithSessionId(currentChatId);
         }
-        
+
         // Fetch recommended prompts after creating new session
         await fetchRecommendedPrompts();
-        
+
         return currentChatId;
     } catch (error) {
         console.error('Error creating chat session:', error);
@@ -718,19 +720,19 @@ async function createKimiChatSession(firstMessage) {
 async function sendToKimi(message, typingIndicator) {
     try {
         let chatEndpoint;
-        
+
         if (currentChatId) {
-            chatEndpoint = kimiConfig.useProxy ? 
-                `${kimiConfig.proxyEndpoint}/chat/${currentChatId}/completion/stream` : 
+            chatEndpoint = kimiConfig.useProxy ?
+                `${kimiConfig.proxyEndpoint}/chat/${currentChatId}/completion/stream` :
                 `${kimiConfig.apiBaseUrl}/chat/${currentChatId}/completion/stream`;
         } else {
             const chatId = await createKimiChatSession(message);
             currentChatId = chatId;
-            chatEndpoint = kimiConfig.useProxy ? 
-                `${kimiConfig.proxyEndpoint}/chat/${chatId}/completion/stream` : 
+            chatEndpoint = kimiConfig.useProxy ?
+                `${kimiConfig.proxyEndpoint}/chat/${chatId}/completion/stream` :
                 `${kimiConfig.apiBaseUrl}/chat/${chatId}/completion/stream`;
         }
-    
+
         const headers = {
             'Content-Type': 'application/json',
             'Accept': 'text/event-stream',
@@ -756,8 +758,8 @@ async function sendToKimi(message, typingIndicator) {
                 sidebar: true
             },
             model: kimiConfig.model === 'k1' ? 'k1' : 'kimi',
-            use_research: false,
-            use_search: false,
+            use_research: kimiConfig.useResearch,
+            use_search: kimiConfig.useSearch,
             messages: [{
                 role: 'user',
                 content: message
@@ -766,24 +768,24 @@ async function sendToKimi(message, typingIndicator) {
             history: [],
             scene_labels: []
         };
-        
+
         const response = await fetchWithTimeout(chatEndpoint, {
             method: 'POST',
             headers: headers,
             body: JSON.stringify(requestData),
             timeout: 30000
         });
-        
+
         if (!response.ok) {
             const errorText = await response.text();
             throw new Error(`API request failed with status ${response.status}: ${errorText}`);
         }
-        
+
         await processStreamingResponse(response, typingIndicator);
-        
+
         // Fetch new recommended prompts after response
         await fetchRecommendedPrompts();
-        
+
     } catch (error) {
         console.error('Error during Kimi communication:', error);
         throw error;
@@ -799,7 +801,7 @@ async function processStreamingResponse(response, typingIndicator) {
     let isThinking = kimiConfig.model === 'k1'; // Only show thinking for k1 model
     let messageId = null;
     let currentGroupId = null;
-    
+
     // Create thought message element (only for k1 model)
     const thoughtEl = document.createElement('div');
     thoughtEl.className = 'message assistant thought';
@@ -807,7 +809,7 @@ async function processStreamingResponse(response, typingIndicator) {
     thoughtContent.className = 'message-content';
     thoughtContent.innerHTML = '<p class="thought-text"></p>';
     thoughtEl.appendChild(thoughtContent);
-    
+
     // Create response message element
     const responseEl = document.createElement('div');
     responseEl.className = 'message assistant response';
@@ -815,7 +817,7 @@ async function processStreamingResponse(response, typingIndicator) {
     responseContent.className = 'message-content';
     responseContent.innerHTML = '<p></p>';
     responseEl.appendChild(responseContent);
-    
+
     // Replace typing indicator with appropriate element
     if (isThinking) {
         // For k1 model, show thought element
@@ -824,25 +826,25 @@ async function processStreamingResponse(response, typingIndicator) {
         // For regular model, show response element directly
         messagesContainer.replaceChild(responseEl, typingIndicator);
     }
-    
+
     try {
         while (true) {
             const { done, value } = await reader.read();
-            
+
             if (done) break;
-            
+
             const chunk = new TextDecoder('utf-8').decode(value);
             accumulator += chunk;
-            
+
             const dataItems = accumulator.split('data: ');
-            
+
             for (let i = 0; i < dataItems.length - 1; i++) {
                 let dataItem = dataItems[i].trim();
-                
+
                 if (dataItem) {
                     try {
                         const jsonData = JSON.parse(dataItem);
-                        
+
                         // Store message ID and group ID when available
                         if (jsonData.event === 'req' || jsonData.event === 'resp') {
                             if (jsonData.id) {
@@ -859,7 +861,7 @@ async function processStreamingResponse(response, typingIndicator) {
                             // This is the thinking phase (only for k1 model)
                             thoughtText = jsonData.text;
                             thoughtContent.querySelector('.thought-text').textContent = thoughtText;
-                            
+
                             if (shouldAutoScroll) {
                                 requestAnimationFrame(scrollToBottom);
                             }
@@ -872,7 +874,7 @@ async function processStreamingResponse(response, typingIndicator) {
                             }
                             responseText += jsonData.text;
                             responseContent.innerHTML = formatMessage(responseText);
-                            
+
                             if (shouldAutoScroll) {
                                 requestAnimationFrame(scrollToBottom);
                             }
@@ -891,10 +893,10 @@ async function processStreamingResponse(response, typingIndicator) {
                     }
                 }
             }
-            
+
             accumulator = dataItems[dataItems.length - 1];
         }
-        
+
         // Add the final response to the conversation history with group_id and message_id
         if (responseText) {
             currentConversation.messages.push({
@@ -905,13 +907,13 @@ async function processStreamingResponse(response, typingIndicator) {
             });
             saveConversations();
         }
-        
+
     } catch (error) {
         console.error('Error processing stream:', error);
         thoughtContent.innerHTML = '<p class="error">Error: Failed to process response</p>';
         throw error;
     }
-    
+
     return responseText;
 }
 
@@ -945,13 +947,13 @@ function saveSettings() {
     kimiConfig.trafficId = document.getElementById('traffic-id').value;
     kimiConfig.useProxy = document.getElementById('use-proxy').checked;
     kimiConfig.proxyEndpoint = document.getElementById('proxy-endpoint').value;
-    
+
     // Save to localStorage
     localStorage.setItem('kimiConfig', JSON.stringify(kimiConfig));
-    
+
     // Update UI
     updateModelBadge();
-    
+
     // Close modal
     closeSettingsModal();
 }
@@ -978,7 +980,7 @@ function loadConversations() {
     try {
         const savedConversations = localStorage.getItem('kimiConversations');
         conversations = savedConversations ? JSON.parse(savedConversations) : [];
-        
+
         if (conversations.length > 0) {
             updateConversationsList();
         }
@@ -1001,19 +1003,19 @@ function generateId() {
 // Check if the server is available
 async function checkServerAvailability() {
     console.log('Checking server availability...');
-    
+
     // If proxy is not enabled, no need to check
     if (!kimiConfig.useProxy) {
         console.log('Proxy server not in use, using direct API access');
         return true;
     }
-    
+
     try {
         const response = await fetchWithTimeout(kimiConfig.proxyEndpoint + '/health', {
             method: 'GET',
             timeout: 3000 // Short timeout for quick checks
         });
-        
+
         if (response.ok) {
             console.log('Proxy server is available');
             return true;
@@ -1029,14 +1031,14 @@ async function checkServerAvailability() {
         // Automatically switch to direct API access
         kimiConfig.useProxy = false;
         updateSettingsUI();
-        
+
         // Show notification to user
         const errorDiv = document.createElement('div');
         errorDiv.className = 'system-message warning';
         errorDiv.innerHTML = `<p>Proxy server is not available. Switched to direct API access.</p>`;
         messagesContainer.appendChild(errorDiv);
         scrollToBottom();
-        
+
         return false;
     }
 }
@@ -1052,10 +1054,10 @@ function updateSettingsUI() {
     document.getElementById('traffic-id').value = kimiConfig.trafficId;
     document.getElementById('use-proxy').checked = kimiConfig.useProxy;
     document.getElementById('proxy-endpoint').value = kimiConfig.proxyEndpoint;
-    
+
     // Update model badge
     updateModelBadge();
-    
+
     // Save settings to localStorage
     localStorage.setItem('kimiConfig', JSON.stringify(kimiConfig));
 }
@@ -1064,9 +1066,9 @@ function updateSettingsUI() {
 function toggleSidebar() {
     sidebar.classList.toggle('active');
     document.body.classList.toggle('sidebar-open');
-    
+
     console.log('Sidebar toggle clicked, new state:', sidebar.classList.contains('active') ? 'open' : 'closed');
-    
+
     // For iOS, ensure proper scroll behavior when toggling
     if (isIOS && sidebar.classList.contains('active')) {
         // Prevent background scrolling when sidebar is open
@@ -1084,27 +1086,27 @@ function toggleSidebar() {
 // Delete a specific conversation
 function deleteConversation(id, event) {
     event.stopPropagation(); // Prevent triggering conversation selection
-    
+
     // Filter out the conversation to delete from the global conversations array
     conversations = conversations.filter(conv => conv.id !== id);
-    
+
     // Save to localStorage
     saveConversations();
-    
+
     // Update UI
     updateConversationsList();
-    
+
     // If it was the active conversation, create a new one or load the most recent one
     if (currentConversation && currentConversation.id === id) {
         // Reset chat and group IDs
         currentChatId = null;
         currentGroupId = null;
-        
+
         // Update URL to remove session parameter
         const url = new URL(window.location);
         url.searchParams.delete('session');
         window.history.pushState({}, '', url.pathname);
-        
+
         if (conversations.length > 0) {
             loadConversation(conversations[0].id);
         } else {
@@ -1134,31 +1136,31 @@ function deleteAllChats() {
     try {
         // Clear localStorage
         localStorage.removeItem('kimiConversations');
-        
+
         // Reset conversations array and current states
         conversations = [];
         currentConversation = null;
         currentChatId = null;
         currentGroupId = null;
-        
+
         // Update URL to remove session parameter
         const url = new URL(window.location);
         url.searchParams.delete('session');
         window.history.pushState({}, '', url.pathname);
-        
+
         // Clear UI
         conversationList.innerHTML = '';
         messagesContainer.innerHTML = '';
-        
+
         // Create new conversation
         createNewConversation();
-        
+
         // Add welcome message
         addWelcomeMessage();
-        
+
         // Close modal
         closeDeleteModal();
-        
+
         // Close sidebar on mobile
         if (window.innerWidth <= 768) {
             toggleSidebar();
@@ -1170,7 +1172,7 @@ function deleteAllChats() {
 
 // Add welcome message
 function addWelcomeMessage() {
-    if (!messagesContainer.querySelector('.welcome-message') && 
+    if (!messagesContainer.querySelector('.welcome-message') &&
         (!currentConversation || currentConversation.messages.length === 0)) {
         const welcome = document.createElement('div');
         welcome.className = 'welcome-message';
@@ -1183,7 +1185,7 @@ function addWelcomeMessage() {
                 <button class="suggestion-chip">Help me with coding</button>
             </div>
         `;
-    
+
         // Add event listeners to suggestion chips
         welcome.querySelectorAll('.suggestion-chip').forEach(chip => {
             if (isIOS) {
@@ -1199,7 +1201,7 @@ function addWelcomeMessage() {
                 });
             }
         });
-        
+
         messagesContainer.appendChild(welcome);
     }
 }
@@ -1209,7 +1211,7 @@ function handlePopState() {
     // Get session ID from query parameter
     const urlParams = new URLSearchParams(window.location.search);
     const sessionId = urlParams.get('session');
-    
+
     // If no session ID or invalid URL, load most recent conversation
     if (!sessionId) {
         if (conversations.length > 0) {
@@ -1219,21 +1221,21 @@ function handlePopState() {
         }
         return;
     }
-    
+
     // Try to find conversation with matching Kimi chat ID
     const matchingByKimiChatId = conversations.find(conv => conv.kimiChatId === sessionId);
     if (matchingByKimiChatId) {
         loadConversation(matchingByKimiChatId.id, false); // Load without updating URL
         return;
     }
-    
+
     // Fallback to matching on conversation ID
     const matchingById = conversations.find(conv => conv.id === sessionId);
     if (matchingById) {
         loadConversation(matchingById.id, false);
         return;
     }
-    
+
     // If no matching conversation found, create new one
     createNewConversation();
 }
@@ -1241,7 +1243,7 @@ function handlePopState() {
 // Initialize the app
 window.addEventListener('load', () => {
     console.log('Kimi Chat interface loaded');
-}); 
+});
 
 // Fetch recommended prompts from the API
 async function fetchRecommendedPrompts() {
@@ -1250,8 +1252,8 @@ async function fetchRecommendedPrompts() {
             return;
         }
 
-        const endpoint = kimiConfig.useProxy ? 
-            `${kimiConfig.proxyEndpoint}/chat/${currentChatId}/prompts` : 
+        const endpoint = kimiConfig.useProxy ?
+            `${kimiConfig.proxyEndpoint}/chat/${currentChatId}/prompts` :
             `${kimiConfig.apiBaseUrl}/chat/${currentChatId}/prompts`;
 
         const response = await fetchWithTimeout(endpoint, {
@@ -1292,7 +1294,7 @@ async function fetchRecommendedPrompts() {
                 const promptElement = document.createElement('button');
                 promptElement.className = 'recommended-prompt';
                 promptElement.textContent = prompt;
-                
+
                 // Set the prompt text in the input when clicked
                 promptElement.addEventListener('click', () => {
                     userInput.value = prompt;
@@ -1354,12 +1356,12 @@ async function fetchSegmentScroll(chatId, lastId, limit = 10) {
         }
 
         const data = await response.json();
-        
+
         // Transform response if needed
         if (data.items && Array.isArray(data.items)) {
             // Sort items by creation date if needed
             data.items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-            
+
             // Process each message to ensure proper formatting
             data.items = data.items.map(item => ({
                 ...item,
@@ -1444,7 +1446,7 @@ const devTools = {
                                 <div class="request-header" onclick="devTools.toggleRequest(${index})">
                                     <span class="method ${req.method.toLowerCase()}">${req.method}</span>
                                     <span class="url">${req.url}</span>
-                                    <span class="status status-${Math.floor(req.status/100)}xx">${req.status}</span>
+                                    <span class="status status-${Math.floor(req.status / 100)}xx">${req.status}</span>
                                     <span class="timestamp">${new Date(req.timestamp).toLocaleTimeString()}</span>
                                 </div>
                                 <div class="request-details" id="request-${index}" style="display: none;">
@@ -1565,4 +1567,70 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Initialize dev tools
-devTools.loadFromLocalStorage(); 
+devTools.loadFromLocalStorage();
+
+// Handle search results display
+function handleSearchResults(data) {
+    // Get templates
+    const searchResultsTemplate = document.getElementById('search-results-template');
+    const webpageItemTemplate = document.getElementById('webpage-item-template');
+
+    // Create search results container
+    const searchResultsContainer = searchResultsTemplate.content.cloneNode(true);
+    const searchPlusContainer = searchResultsContainer.querySelector('.search-plus');
+
+    // Set Understanding Question section
+    const understoodQuerySection = searchResultsContainer.querySelector('.search-plus-understood-query');
+    if (data.msg && data.msg.understanding) {
+        understoodQuerySection.textContent = data.msg.understanding;
+    }
+
+    // Handle search targets in Search Web section
+    if (data.msg && data.msg.targets && data.msg.targets.length > 0) {
+        const searchTargetsContainer = searchResultsContainer.querySelector('.search-plus-targets');
+        data.msg.targets.forEach(target => {
+            const strongElement = document.createElement('strong');
+            strongElement.textContent = target;
+            searchTargetsContainer.appendChild(strongElement);
+        });
+    }
+
+    // Handle web pages in Read Web Pages section
+    if (data.msg && data.msg.webpages && data.msg.webpages.length > 0) {
+        const webpagesList = searchResultsContainer.querySelector('.search-plus-list');
+        const readWebPagesTitle = webpagesList.closest('li').querySelector('.search-plus-tip-title');
+        readWebPagesTitle.textContent = `Read ${data.msg.webpages.length} web pages`;
+
+        data.msg.webpages.forEach(webpage => {
+            const webpageItem = webpageItemTemplate.content.cloneNode(true);
+            const link = webpageItem.querySelector('.search-plus-item');
+            const favicon = webpageItem.querySelector('.search-plus-item-favicon');
+            const content = webpageItem.querySelector('.search-plus-item-content');
+            const siteName = webpageItem.querySelector('.search-plus-item-site-name');
+            const time = webpageItem.querySelector('.search-plus-item-time');
+
+            link.href = webpage.url;
+            favicon.src = webpage.favicon || 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAACAAAAAgCAMAAABEpIrGAAABlVBMVEUAAABVqv9tkv9gn/9xqv9mmf9jnP9rof9mpv9hnv9oov9kpv9mo/9inf9kov9pnv9moP9qo/9qpf9tp/9ppf9nov9ln/9qn/9pn/9nof9lo/9ooP9lof9oov9nn/9lof9nov9oof9nov9nof9mov9ooP9nof9noP9mov9nof9lov9no/9mof9noP9oof9nov9oov9noP9mov9no/9mof9mov9ooP9nn/9nof9mov9nov9mof9oov9noP9mof9nov9mof9oof9noP9oof9noP9nof9nof9mof9noP9nof9oov9noP9mof9nov9oof9noP9mof9nof9mn/9nof9nov9oof9nof9noP9nof9nof9nof9nov9mof9moP9nof9mof9noP9nof9oof9oof9oov9nof9nov9mof9nof9nof9mof9nof9noP9mof9mov9nov9nof9moP9oof9mof9nof9nof9noP9nof9nof9nof9nof9oov9moP9nof9noP9nof9nof9nof9mof9nof9mof9nof/////tU3aDAAAAhHRSTlMABgcICQoSExQVFhcZGiEiIyQwMTM0NTU4OTo7REdISUpRUlRVVldZWlxdXl9hYmNlZnN0dXZ2d3d4eXp7fH1+f4CBgo+QkpOUlZaXmJmbnJ2era20tszNzs/Q0tbX19na2trb29zd3t7f4OHi4+Pj5OXl5ubn6On09fb29/f4+Pn6/v43Uh/2AAAAAWJLR0SGjN47XQAAAchJREFUGBmtwfs7UwEAx+Gv2dawuUwT2nLplNyKLqQlUolSW2wlTWtdRLqHtjTnnPL5v9vZ2IM9/eZ9dcx8zWOjwRP6j6apJRy7z283qlLdrE2Zfb9WR7RvAb8glYJtYLNNh5w3YbU3Q9YfyJHuWwPT0AGnTZitaoGYFIeQaw7MNpXV/YTL0i2ISB0QlUZgs0b7HsCMpCSmW/LYJCQ9hGntabJZrZL0g1dhwwiv8EmSaw2rQSV3oLdlPPmdsq/Jmy39MKmSF2xnqJDJs6iiGoqstzA/ZBhDC/DawvHXK8cpIBuLuDthUAUXIeKOxLJAsxw3IOWX1A09KuiBLkn+Zbgqx3V4GZDUDT0quABdkgLLcEWOk0AufsbTCYMquAQRT0c8BwTl8FFkv4P5YcMYXoAVG8cfr4qWyKepkN7hqUqmoC8UTXyh7HMiGhqACZU02qy5JH3jTdgwwu/5KKl6Hatee2bgiaQkllvy2CQkPYK72le7BSPSOESkDohKY7DhU1m7CXOuEMSkOISqH0O+VQecM+FDf4asP5AjPbAO+bM6pG0T+A2pFOwAG606ombaosy651OlhsnFXQp2n03U6z+8wdFrQa+O1z+BislVZg3UWAAAAABJRU5ErkJggg==';
+            favicon.alt = webpage.site_name || 'Website';
+            content.textContent = webpage.title;
+            content.title = webpage.title;
+            siteName.textContent = webpage.site_name;
+            siteName.title = webpage.site_name;
+
+            if (webpage.date) {
+                time.textContent = `[${webpage.date}]`;
+            } else {
+                time.remove();
+            }
+
+            webpagesList.appendChild(webpageItem);
+        });
+    }
+
+    // Add to messages container
+    const messagesContainer = document.querySelector('.messages-container');
+    messagesContainer.appendChild(searchResultsContainer);
+
+    // Scroll to bottom
+    scrollToBottom();
+} 
