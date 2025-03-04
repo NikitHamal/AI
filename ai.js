@@ -65,6 +65,7 @@ let userScrolled = false;
 let isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
 let currentGroupId = null;
 let currentChatId = null;
+let recommendedPromptsCache = {};
 
 // Initialize on page load
 document.addEventListener('DOMContentLoaded', initializeApp);
@@ -78,6 +79,9 @@ function initializeApp() {
     
     // Load saved settings
     loadSettings();
+    
+    // Load recommended prompts cache
+    loadRecommendedPromptsFromCache();
     
     // Load saved conversations
     loadConversations();
@@ -348,6 +352,26 @@ function loadConversation(id, shouldUpdateUrl = true) {
         currentConversation.messages.forEach(msg => {
             appendMessage(msg.role, msg.content, msg.searchData, msg.thinking);
         });
+        
+        // Try to load cached prompts if this conversation has a Kimi chat ID
+        if (currentConversation.kimiChatId) {
+            currentChatId = currentConversation.kimiChatId;
+            const lastAssistantMessage = currentConversation.messages.findLast(msg => msg.role === 'assistant');
+            if (lastAssistantMessage && lastAssistantMessage.group_id) {
+                currentGroupId = lastAssistantMessage.group_id;
+                // Load cached prompts with a small delay to ensure smooth animation
+                setTimeout(() => {
+                    try {
+                        const cachedData = recommendedPromptsCache[`${currentChatId}-${currentGroupId}`];
+                        if (cachedData && (Date.now() - cachedData.timestamp) < 30 * 60 * 1000) {
+                            displayRecommendedPrompts(cachedData.prompts);
+                        }
+                    } catch (error) {
+                        console.error('Error loading cached prompts:', error);
+                    }
+                }, 100);
+            }
+        }
     } else {
         // Add welcome message if the conversation is empty
         setTimeout(addWelcomeMessage, 100);
@@ -599,6 +623,13 @@ async function handleSendMessage() {
     userInput.disabled = true;
     sendButton.disabled = true;
     
+    // Hide any existing recommended prompts with fade out
+    const existingPrompts = document.querySelector('.recommended-prompts');
+    if (existingPrompts) {
+        existingPrompts.classList.remove('visible');
+        setTimeout(() => existingPrompts.remove(), 300); // Remove after fade out
+    }
+    
     // On iOS, blur the input to hide keyboard
     if (isIOS) {
         userInput.blur();
@@ -818,10 +849,8 @@ async function sendToKimi(message, typingIndicator) {
             throw new Error(`API request failed with status ${response.status}: ${errorText}`);
         }
         
+        // Process the streaming response
         await processStreamingResponse(response, typingIndicator);
-        
-        // Fetch new recommended prompts after response
-        await fetchRecommendedPrompts();
         
     } catch (error) {
         console.error('Error during Kimi communication:', error);
@@ -838,6 +867,14 @@ async function processStreamingResponse(response, typingIndicator) {
     let startTime = Date.now();
     let thinkingTimer;
     let searchResultsAdded = false;
+    let groupIdReceived = false;
+
+    // Hide any existing recommended prompts immediately
+    const existingPrompts = document.querySelector('.recommended-prompts');
+    if (existingPrompts) {
+        existingPrompts.classList.remove('visible');
+        setTimeout(() => existingPrompts.remove(), 300);
+    }
 
     // Create response element
     const responseEl = document.createElement('div');
@@ -855,7 +892,7 @@ async function processStreamingResponse(response, typingIndicator) {
     
     // Append message content after search results will be added
     responseEl.appendChild(messageContent);
-    messagesContainer.replaceChild(responseEl, typingIndicator);
+        messagesContainer.replaceChild(responseEl, typingIndicator);
 
     try {
         const reader = response.body.getReader();
@@ -882,6 +919,12 @@ async function processStreamingResponse(response, typingIndicator) {
                     
                     const jsonData = JSON.parse(jsonStr);
 
+                    // Check for group_id in the response
+                    if (jsonData.group_id && !groupIdReceived) {
+                        currentGroupId = jsonData.group_id;
+                        groupIdReceived = true;
+                    }
+
                     // Handle search events first
                     if (jsonData.event === 'k1' && jsonData.type === 'search_results') {
                         if (!searchResults) {
@@ -904,9 +947,9 @@ async function processStreamingResponse(response, typingIndicator) {
                         const searchResultsEl = createSearchResultsElement(searchTargets, searchResults);
                         responseEl.insertBefore(searchResultsEl, messageContent);
                         searchResultsAdded = true;
-                    }
+                        }
 
-                    // Handle thought process (k1 model)
+                        // Handle thought process (k1 model)
                     if (jsonData.event === 'k1' && jsonData.text) {
                         if (!isThinking) {
                             isThinking = true;
@@ -952,12 +995,12 @@ async function processStreamingResponse(response, typingIndicator) {
                         if (content) {
                             content.innerHTML = thoughtText.split('\n').map(p => `<p>${p}</p>`).join('');
                         }
-                        if (shouldAutoScroll) requestAnimationFrame(scrollToBottom);
-                    }
+                            if (shouldAutoScroll) requestAnimationFrame(scrollToBottom);
+                        }
 
-                    // Handle response text
-                    if (jsonData.event === 'cmpl' && jsonData.text) {
-                        if (isThinking) {
+                        // Handle response text
+                        if (jsonData.event === 'cmpl' && jsonData.text) {
+                            if (isThinking) {
                             // Stop and update timer before switching to response
                             clearInterval(thinkingTimer);
                             const elapsedSeconds = Math.floor((Date.now() - startTime) / 1000);
@@ -972,11 +1015,11 @@ async function processStreamingResponse(response, typingIndicator) {
                                     </div>
                                 `;
                             }
-                            isThinking = false;
-                        }
-                        responseText += jsonData.text;
+                                isThinking = false;
+                            }
+                            responseText += jsonData.text;
                         formattedContent.innerHTML = formatMessage(responseText);
-                        if (shouldAutoScroll) requestAnimationFrame(scrollToBottom);
+                            if (shouldAutoScroll) requestAnimationFrame(scrollToBottom);
                     }
                 } catch (e) {
                     console.error('Error parsing JSON:', e, 'Line:', line);
@@ -993,10 +1036,19 @@ async function processStreamingResponse(response, typingIndicator) {
                     if (jsonData.event === 'cmpl' && jsonData.text) {
                         responseText += jsonData.text;
                         formattedContent.innerHTML = formatMessage(responseText);
-                    }
-                }
-            } catch (e) {
+                            }
+                        }
+                    } catch (e) {
                 console.error('Error parsing remaining buffer:', e);
+            }
+        }
+
+        // Only fetch prompts after full completion
+        if (currentChatId && currentGroupId) {
+            try {
+                await fetchRecommendedPrompts();
+            } catch (error) {
+                console.error('Error fetching prompts after completion:', error);
             }
         }
     } catch (error) {
@@ -1004,9 +1056,10 @@ async function processStreamingResponse(response, typingIndicator) {
     }
 
     // Save the message to conversation history
-    const messageData = {
-        role: 'assistant',
-        content: responseText
+            const messageData = {
+                role: 'assistant',
+                content: responseText,
+        group_id: currentGroupId // Save the group_id with the message
     };
 
     if (thoughtText) {
@@ -1021,10 +1074,10 @@ async function processStreamingResponse(response, typingIndicator) {
             targets: searchTargets,
             results: searchResults
         };
-    }
-
-    currentConversation.messages.push(messageData);
-    saveConversations();
+            }
+            
+            currentConversation.messages.push(messageData);
+            saveConversations();
 }
 
 // Function to create search results element
@@ -1219,9 +1272,9 @@ function loadConversations() {
                             // Initialize searchData if it doesn't exist
                             if (!msg.searchData) {
                                 msg.searchData = {
-                                    targets: [],
-                                    results: []
-                                };
+                                targets: [],
+                                results: []
+                            };
                             }
                             // Migrate old search_data to searchData if needed
                             if (msg.search_data && !msg.searchData) {
@@ -1495,96 +1548,46 @@ function handlePopState() {
     createNewConversation();
 }
 
-// Initialize the app
-window.addEventListener('load', () => {
-    console.log('Kimi Chat interface loaded');
-}); 
+// Add this function to save prompts to local storage
+function saveRecommendedPromptsToCache(key, prompts) {
+    recommendedPromptsCache[key] = {
+        prompts: prompts,
+        timestamp: Date.now()
+    };
+    localStorage.setItem('recommendedPromptsCache', JSON.stringify(recommendedPromptsCache));
+}
 
-// Fetch recommended prompts from the API
+// Add this function to load prompts from local storage
+function loadRecommendedPromptsFromCache() {
+    const cached = localStorage.getItem('recommendedPromptsCache');
+    if (cached) {
+        recommendedPromptsCache = JSON.parse(cached);
+    }
+}
+
+// Update the fetchRecommendedPrompts function
 async function fetchRecommendedPrompts() {
     try {
         if (!currentChatId || !currentGroupId) {
             return;
         }
 
+        // Create a unique cache key with both chatId and groupId
+        const cacheKey = `${currentChatId}-${currentGroupId}`;
+        
+        // Check cache with the new key
+        const cachedData = recommendedPromptsCache[cacheKey];
+        const cacheExpiry = 30 * 60 * 1000;
+        if (cachedData && (Date.now() - cachedData.timestamp) < cacheExpiry) {
+            displayRecommendedPrompts(cachedData.prompts);
+            return;
+        }
+
         const endpoint = kimiConfig.useProxy ? 
-            `${kimiConfig.proxyEndpoint}/chat/${currentChatId}/prompts` : 
-            `${kimiConfig.apiBaseUrl}/chat/${currentChatId}/prompts`;
+            `${kimiConfig.proxyEndpoint}/chat/recommend-prompt` : 
+            `${kimiConfig.apiBaseUrl}/chat/recommend-prompt`;
 
         const response = await fetchWithTimeout(endpoint, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': kimiConfig.authorization,
-                'x-msh-device-id': kimiConfig.deviceId,
-                'x-msh-session-id': kimiConfig.sessionId,
-                'x-traffic-id': kimiConfig.trafficId,
-                'x-msh-platform': 'web',
-                'x-language': 'en-US',
-                'r-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
-            },
-            timeout: 5000
-        });
-
-        if (!response.ok) {
-            throw new Error(`Failed to fetch prompts: ${response.status}`);
-        }
-
-        const data = await response.json();
-        const prompts = data.prompts || [];
-
-        // Remove existing prompts
-        const existingPrompts = document.querySelector('.recommended-prompts');
-        if (existingPrompts) {
-            existingPrompts.remove();
-        }
-
-        if (prompts.length > 0) {
-            // Create new prompts container
-            const promptsContainer = document.createElement('div');
-            promptsContainer.className = 'recommended-prompts';
-
-            // Add each prompt
-            prompts.forEach(prompt => {
-                const promptElement = document.createElement('button');
-                promptElement.className = 'recommended-prompt';
-                promptElement.textContent = prompt;
-                
-                // Set the prompt text in the input when clicked
-                promptElement.addEventListener('click', () => {
-                    userInput.value = prompt;
-                    userInput.focus();
-                });
-
-                promptsContainer.appendChild(promptElement);
-            });
-
-            // Find the last assistant message and append prompts after it
-            const messages = document.querySelectorAll('.message');
-            let lastAssistantMessage = null;
-            for (let i = messages.length - 1; i >= 0; i--) {
-                if (messages[i].classList.contains('assistant') && !messages[i].classList.contains('thought')) {
-                    lastAssistantMessage = messages[i];
-                    break;
-                }
-            }
-
-            if (lastAssistantMessage) {
-                lastAssistantMessage.insertAdjacentElement('afterend', promptsContainer);
-                scrollToBottom();
-            }
-        }
-    } catch (error) {
-        console.error('Error fetching recommended prompts:', error);
-    }
-}
-
-// Add after the fetchRecommendedPrompts function
-let lastMessageId = null;
-
-async function fetchSegmentScroll(chatId, lastId, limit = 10) {
-    try {
-        const response = await fetchWithTimeout(`${kimiConfig.apiBaseUrl}/chat/${chatId}/segment/scroll`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -1597,229 +1600,118 @@ async function fetchSegmentScroll(chatId, lastId, limit = 10) {
                 'r-timezone': Intl.DateTimeFormat().resolvedOptions().timeZone
             },
             body: JSON.stringify({
-                chat_id: chatId,
-                group_id: currentGroupId || null,
-                model: kimiConfig.model || 'k1',
-                source: 'web',
-                limit: limit,
-                last_id: lastId
-            })
+                chat_id: currentChatId,
+                group_id: currentGroupId,
+                use_search: kimiConfig.useSearch
+            }),
+            timeout: 10000
         });
 
-        if (!response.ok) {
-            throw new Error(`Failed to fetch segments: ${response.status}`);
-        }
+        if (!response.ok) throw new Error(`Failed to fetch prompts: ${response.status}`);
 
-        const data = await response.json();
-        
-        // Transform response if needed
-        if (data.items && Array.isArray(data.items)) {
-            // Sort items by creation date if needed
-            data.items.sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
-            
-            // Process each message to ensure proper formatting
-            data.items = data.items.map(item => ({
-                ...item,
-                content: item.content || '',
-                context_type: item.context_type || 'text',
-                status: item.status || { is_thumb_up: false, is_thumb_down: false },
-                role: item.role || 'assistant',
-                info: item.info || {
-                    model: item.model || 'k1',
-                    stop: false,
-                    by_recommend_kimiplus: false,
-                    image_gen_ratio: '',
-                    use_image_gen: false
-                },
-                contents: item.contents || {
-                    zones: [{
-                        index: 0,
-                        zone_type: 'normal',
-                        sections: [{
-                            index: 0,
-                            view: 'cmpl',
-                            cmpl: item.content || ''
-                        }]
-                    }]
+        // Process response and save with new cache key
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
+        let buffer = '';
+        let prompts = [];
+
+        while (true) {
+            const { value, done } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            let lines = buffer.split('\n');
+            buffer = lines.pop() || '';
+
+            for (const line of lines) {
+                try {
+                    const jsonStr = line.replace(/^data: /, '').trim();
+                    if (!jsonStr) continue;
+                    
+                    const jsonData = JSON.parse(jsonStr);
+                    if (jsonData.event === 'chat_prompt' && jsonData.text) {
+                        prompts.push(jsonData.text);
+                    }
+                } catch (e) {
+                    console.error('Error parsing JSON:', e, 'Line:', line);
                 }
-            }));
+            }
         }
 
-        return data;
+        // Save with composite key
+        saveRecommendedPromptsToCache(cacheKey, prompts);
+        displayRecommendedPrompts(prompts);
+
     } catch (error) {
-        console.error('Error fetching segments:', error);
-        throw error;
+        console.error('Error fetching recommended prompts:', error);
     }
 }
 
-// Add developer tools functionality
-const devTools = {
-    requests: [],
-    maxStoredRequests: 100,
+// Add this new function to handle prompt display
+function displayRecommendedPrompts(prompts) {
+    if (!prompts || prompts.length === 0) return;
 
-    addRequest(requestInfo) {
-        this.requests.unshift(requestInfo);
-        if (this.requests.length > this.maxStoredRequests) {
-            this.requests.pop();
-        }
-        this.saveToLocalStorage();
-    },
+    // Remove existing prompts with fade out
+    const existingPrompts = document.querySelector('.recommended-prompts');
+    if (existingPrompts) {
+        existingPrompts.classList.remove('visible');
+        setTimeout(() => existingPrompts.remove(), 300);
+    }
 
-    saveToLocalStorage() {
-        localStorage.setItem('kimiDevTools', JSON.stringify(this.requests));
-    },
+    // Create container
+    const promptsContainer = document.createElement('div');
+    promptsContainer.className = 'recommended-prompts';
 
-    loadFromLocalStorage() {
-        const saved = localStorage.getItem('kimiDevTools');
-        if (saved) {
-            this.requests = JSON.parse(saved);
-        }
-    },
+    // Add header
+    const header = document.createElement('div');
+    header.className = 'recommended-prompts-header';
+    header.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+        </svg>
+        <span>Suggested questions</span>
+    `;
+    promptsContainer.appendChild(header);
 
-    clearHistory() {
-        this.requests = [];
-        this.saveToLocalStorage();
-    },
+    // Add prompts list
+    const promptsList = document.createElement('div');
+    promptsList.className = 'recommended-prompts-list';
 
-    showDevTools() {
-        const modal = document.createElement('div');
-        modal.className = 'modal dev-tools-modal active';
-        modal.innerHTML = `
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h2>Developer Tools</h2>
-                    <button class="close-modal">×</button>
-                </div>
-                <div class="modal-body">
-                    <div class="dev-tools-controls">
-                        <button class="clear-history">Clear History</button>
-                        <button class="export-json">Export JSON</button>
-                    </div>
-                    <div class="requests-list">
-                        ${this.requests.map((req, index) => `
-                            <div class="request-item">
-                                <div class="request-header" onclick="devTools.toggleRequest(${index})">
-                                    <span class="method ${req.method.toLowerCase()}">${req.method}</span>
-                                    <span class="url">${req.url}</span>
-                                    <span class="status status-${Math.floor(req.status/100)}xx">${req.status}</span>
-                                    <span class="timestamp">${new Date(req.timestamp).toLocaleTimeString()}</span>
-                                </div>
-                                <div class="request-details" id="request-${index}" style="display: none;">
-                                    <h4>Request Headers</h4>
-                                    <pre>${JSON.stringify(req.requestHeaders, null, 2)}</pre>
-                                    <h4>Request Body</h4>
-                                    <pre>${JSON.stringify(req.requestBody, null, 2)}</pre>
-                                    <h4>Response Headers</h4>
-                                    <pre>${JSON.stringify(req.responseHeaders, null, 2)}</pre>
-                                    <h4>Response Body</h4>
-                                    <pre>${JSON.stringify(req.responseBody, null, 2)}</pre>
-                                </div>
-                            </div>
-                        `).join('')}
-                    </div>
-                </div>
-            </div>
-        `;
-
-        document.body.appendChild(modal);
-
-        // Add event listeners
-        modal.querySelector('.close-modal').addEventListener('click', () => {
-            modal.remove();
+    prompts.forEach((promptText, index) => {
+        const promptElement = document.createElement('button');
+        promptElement.className = 'recommended-prompt';
+        promptElement.textContent = promptText;
+        
+        promptElement.addEventListener('click', () => {
+            userInput.value = promptText;
+            userInput.focus();
+            handleSendMessage();
         });
 
-        modal.querySelector('.clear-history').addEventListener('click', () => {
-            this.clearHistory();
-            modal.remove();
-            this.showDevTools();
-        });
+        promptsList.appendChild(promptElement);
+    });
 
-        modal.querySelector('.export-json').addEventListener('click', () => {
-            const dataStr = JSON.stringify(this.requests, null, 2);
-            const dataBlob = new Blob([dataStr], { type: 'application/json' });
-            const url = window.URL.createObjectURL(dataBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `kimi-dev-tools-${new Date().toISOString()}.json`;
-            a.click();
-            window.URL.revokeObjectURL(url);
-        });
-    },
+    promptsContainer.appendChild(promptsList);
 
-    toggleRequest(index) {
-        const details = document.getElementById(`request-${index}`);
-        if (details) {
-            details.style.display = details.style.display === 'none' ? 'block' : 'none';
+    // Find the last assistant message and append prompts
+    const messages = document.querySelectorAll('.message');
+    let lastAssistantMessage = null;
+    for (let i = messages.length - 1; i >= 0; i--) {
+        if (messages[i].classList.contains('assistant') && !messages[i].classList.contains('thinking-bubble')) {
+            lastAssistantMessage = messages[i];
+            break;
         }
     }
-};
 
-// Modify fetchWithTimeout to capture request/response info
-const originalFetchWithTimeout = window.fetchWithTimeout;
-window.fetchWithTimeout = async (url, options = {}) => {
-    const startTime = Date.now();
-    const requestHeaders = { ...options.headers };
-    const requestBody = options.body ? JSON.parse(options.body) : null;
-
-    try {
-        const response = await originalFetchWithTimeout(url, options);
-        const responseHeaders = {};
-        response.headers.forEach((value, name) => {
-            responseHeaders[name] = value;
+    if (lastAssistantMessage) {
+        lastAssistantMessage.insertAdjacentElement('afterend', promptsContainer);
+        // Add visible class after a short delay to trigger animation
+        requestAnimationFrame(() => {
+            promptsContainer.classList.add('visible');
         });
-
-        let responseBody;
-        if (response.headers.get('content-type')?.includes('application/json')) {
-            const clonedResponse = response.clone();
-            try {
-                responseBody = await clonedResponse.json();
-            } catch (e) {
-                responseBody = 'Could not parse JSON response';
-            }
-        } else if (response.headers.get('content-type')?.includes('text')) {
-            const clonedResponse = response.clone();
-            responseBody = await clonedResponse.text();
-        } else {
-            responseBody = 'Binary data not shown';
-        }
-
-        devTools.addRequest({
-            timestamp: startTime,
-            url,
-            method: options.method || 'GET',
-            status: response.status,
-            requestHeaders,
-            requestBody,
-            responseHeaders,
-            responseBody,
-            duration: Date.now() - startTime
-        });
-
-        return response;
-    } catch (error) {
-        devTools.addRequest({
-            timestamp: startTime,
-            url,
-            method: options.method || 'GET',
-            status: 0,
-            requestHeaders,
-            requestBody,
-            responseHeaders: {},
-            responseBody: error.message,
-            duration: Date.now() - startTime,
-            error: true
-        });
-        throw error;
+        scrollToBottom();
     }
-};
-
-// Add keyboard shortcut to open dev tools (Ctrl+Shift+D)
-document.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'd') {
-        e.preventDefault();
-        devTools.showDevTools();
-    }
-});
+}
 
 // Initialize dev tools
 devTools.loadFromLocalStorage(); 

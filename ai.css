@@ -1727,3 +1727,92 @@ svg {
     0%, 100% { opacity: 1; }
     50% { opacity: 0.5; }
 }
+
+/* Recommended Prompts Styling */
+.recommended-prompts {
+    opacity: 0;
+    margin-top: 16px;
+    margin-bottom: 24px;
+    transform: translateY(10px);
+    transition: opacity 0.3s ease, transform 0.3s ease;
+}
+
+.recommended-prompts.visible {
+    opacity: 1;
+    transform: translateY(0);
+}
+
+.recommended-prompts-header {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--color-text-light);
+    font-size: 11px;
+    margin-bottom: 8px;
+}
+
+.recommended-prompts-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.recommended-prompt {
+    background-color: var(--color-bg-secondary);
+    padding: 8px 12px;
+    border-radius: 16px;
+    font-size: 12px;
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    opacity: 0;
+    transform: translateY(10px);
+}
+
+.recommended-prompt:nth-child(1) { animation: slideUpFadeIn 0.3s ease forwards 0.1s; }
+.recommended-prompt:nth-child(2) { animation: slideUpFadeIn 0.3s ease forwards 0.2s; }
+.recommended-prompt:nth-child(3) { animation: slideUpFadeIn 0.3s ease forwards 0.3s; }
+.recommended-prompt:nth-child(4) { animation: slideUpFadeIn 0.3s ease forwards 0.4s; }
+.recommended-prompt:nth-child(5) { animation: slideUpFadeIn 0.3s ease forwards 0.5s; }
+
+.recommended-prompt:hover {
+    background-color: var(--color-primary-light);
+    color: white;
+    border-color: var(--color-primary-light);
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-md);
+}
+
+.recommended-prompt:active {
+    transform: translateY(0);
+    box-shadow: var(--shadow-sm);
+}
+
+@keyframes slideUpFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile adjustments for recommended prompts */
+@media (max-width: 768px) {
+    .recommended-prompts {
+        margin-top: 8px;
+    }
+    
+    .recommended-prompts-list {
+        flex-direction: column;
+        gap: 6px;
+    }
+    
+    .recommended-prompt {
+        width: 100%;
+        text-align: left;
+    }
+}
