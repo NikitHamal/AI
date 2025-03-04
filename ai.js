@@ -141,6 +141,9 @@ function initializeApp() {
     
     // Add a welcome message after a small delay for a better UX
     setTimeout(addWelcomeMessage, 100);
+    
+    // Initialize web search sidebar
+    initWebSearchSidebar();
 }
 
 // iOS height fix
@@ -389,6 +392,9 @@ function loadConversation(id, shouldUpdateUrl = true) {
         document.body.classList.remove('sidebar-open');
     }
     
+    // Close web search sidebar when switching conversations
+    closeWebSearchSidebar();
+    
     // Remove recommended prompts when loading a new conversation
     const existingPrompts = document.querySelector('.recommended-prompts');
     if (existingPrompts) existingPrompts.remove();
@@ -509,6 +515,15 @@ function appendMessage(role, content, searchData = null, thinking = null) {
     if (role === 'assistant' && searchData && searchData.results && searchData.results.length > 0) {
         const searchResultsEl = createSearchResultsElement(searchData.targets || [], searchData.results);
         messageEl.appendChild(searchResultsEl);
+        
+        // Add pulsing animation to indicate new search results are available
+        const webSearchToggleBtn = document.querySelector('.web-search-toggle');
+        if (webSearchToggleBtn) {
+            webSearchToggleBtn.classList.add('has-results');
+            setTimeout(() => {
+                webSearchToggleBtn.classList.remove('has-results');
+            }, 5000);
+        }
     }
     
     messageEl.appendChild(messageContent);
@@ -1120,6 +1135,11 @@ async function processStreamingResponse(response, typingIndicator) {
 
 // Function to create search results element
 function createSearchResultsElement(targets, results) {
+    // Store original function if not already stored
+    if (!window.originalCreateSearchResultsElement) {
+        window.originalCreateSearchResultsElement = createSearchResultsElement;
+    }
+    
     const searchResultsEl = document.createElement('div');
     searchResultsEl.className = 'search-results';
 
@@ -1203,9 +1223,9 @@ function createSearchResultsElement(targets, results) {
                             <span class="site-name">${result.site_name}</span>
                             ${result.date ? `<span class="date">[${result.date}]</span>` : ''}
                         </div>
-                        <a href="${result.url}" target="_blank" rel="noopener noreferrer" class="result-title">${result.title}</a>
+                        <a href="${result.url}" class="result-title">${result.title}</a>
                         <p class="snippet">${result.snippet}</p>
-                        <a href="${result.url}" target="_blank" rel="noopener noreferrer" class="url">${result.url}</a>
+                        <a href="${result.url}" class="url">${result.url}</a>
                     </div>
                 `).join('')}
             </div>
@@ -1222,6 +1242,26 @@ function createSearchResultsElement(targets, results) {
         });
         
         understandingContent.appendChild(readPagesSection);
+        
+        // Add click handlers for search result links
+        setTimeout(() => {
+            const resultLinks = readPagesContent.querySelectorAll('.result-title, .url');
+            resultLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const url = link.getAttribute('href');
+                    
+                    // Get the web search sidebar and ensure it's visible
+                    const webSearchSidebar = document.querySelector('.web-search-sidebar');
+                    if (!webSearchSidebar.classList.contains('active')) {
+                        toggleWebSearchSidebar();
+                    }
+                    
+                    // Open in new tab
+                    window.open(url, '_blank');
+                });
+            });
+        }, 0);
     }
 
     understandingSection.appendChild(understandingHeader);
@@ -1232,7 +1272,7 @@ function createSearchResultsElement(targets, results) {
         understandingHeader.classList.toggle('expanded');
         understandingContent.classList.toggle('visible');
     });
-    
+
     searchResultsEl.appendChild(understandingSection);
     return searchResultsEl;
 }
@@ -1847,4 +1887,347 @@ window.copyCode = function(button) {
 };
 
 // Initialize dev tools
-devTools.loadFromLocalStorage(); 
+devTools.loadFromLocalStorage();
+
+// Web Search Sidebar Functions
+function toggleWebSearchSidebar() {
+    const searchToggle = document.querySelector('.web-search-toggle');
+    const searchSidebar = document.querySelector('.web-search-sidebar');
+    const appContainer = document.querySelector('.app-container');
+    
+    searchToggle.classList.toggle('active');
+    searchSidebar.classList.toggle('active');
+    appContainer.classList.toggle('search-active');
+    
+    // If we're opening the sidebar and have search results to show
+    if (searchSidebar.classList.contains('active')) {
+        // Get the latest search results
+        displayLatestSearchResults();
+    }
+}
+
+function closeWebSearchSidebar() {
+    const searchToggle = document.querySelector('.web-search-toggle');
+    const searchSidebar = document.querySelector('.web-search-sidebar');
+    const appContainer = document.querySelector('.app-container');
+    
+    searchToggle.classList.remove('active');
+    searchSidebar.classList.remove('active');
+    appContainer.classList.remove('search-active');
+}
+
+function toggleReadPages() {
+    const readPagesBtn = document.querySelector('.toggle-read-pages-btn');
+    const searchResultsContainer = document.querySelector('.search-results-container');
+    const readPagesContainer = document.querySelector('.read-pages-container');
+    const webPageContainer = document.querySelector('.web-page-view-container');
+    
+    readPagesBtn.classList.toggle('active');
+    
+    if (readPagesBtn.classList.contains('active')) {
+        // Switch to read pages view
+        searchResultsContainer.classList.remove('active');
+        webPageContainer.classList.remove('active');
+        readPagesContainer.classList.add('active');
+        
+        // Update the read pages list
+        updateReadPagesList();
+    } else {
+        // Switch back to search results
+        readPagesContainer.classList.remove('active');
+        webPageContainer.classList.remove('active');
+        searchResultsContainer.classList.add('active');
+    }
+}
+
+function backToSearchResults() {
+    const searchResultsContainer = document.querySelector('.search-results-container');
+    const readPagesContainer = document.querySelector('.read-pages-container');
+    const webPageContainer = document.querySelector('.web-page-view-container');
+    const readPagesBtn = document.querySelector('.toggle-read-pages-btn');
+    
+    webPageContainer.classList.remove('active');
+    readPagesContainer.classList.remove('active');
+    searchResultsContainer.classList.add('active');
+    readPagesBtn.classList.remove('active');
+}
+
+function displayLatestSearchResults() {
+    const webPagesContainer = document.querySelector('.web-pages-container');
+    
+    // Clear container first
+    webPagesContainer.innerHTML = '';
+    
+    // Only proceed if we have a current conversation
+    if (!currentConversation || !currentConversation.messages) {
+        webPagesContainer.innerHTML = `
+            <div class="no-search-results">
+                <p>No web pages available for the current conversation.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Find the latest assistant message with search data in the current conversation
+    let latestSearchData = null;
+    
+    // Look through the current conversation's messages only
+    for (let i = currentConversation.messages.length - 1; i >= 0; i--) {
+        const msg = currentConversation.messages[i];
+        if (msg.role === 'assistant' && msg.searchData && msg.searchData.results && msg.searchData.results.length > 0) {
+            // We found search data in this conversation
+            latestSearchData = msg.searchData;
+            break;
+        }
+    }
+    
+    // If we found search data, display the web pages
+    if (latestSearchData && latestSearchData.results && latestSearchData.results.length > 0) {
+        const results = latestSearchData.results;
+        
+        // Convert search results to web page items
+        results.forEach(result => {
+            if (result && result.url && result.title) {
+                const siteName = result.site_name || '';
+                const title = result.title || 'Untitled';
+                const snippet = result.snippet || '';
+                const url = result.url;
+                const favicon = result.icon || '';
+                const date = result.date || '';
+                
+                const webPageItem = document.createElement('div');
+                webPageItem.className = 'web-page-item';
+                webPageItem.innerHTML = `
+                    <div class="web-page-item-header">
+                        ${favicon ? `<img src="${favicon}" class="web-page-favicon" alt="${siteName}">` : ''}
+                        <div class="web-page-source">${siteName}</div>
+                        ${date ? `<div class="web-page-date">${date}</div>` : ''}
+                    </div>
+                    <div class="web-page-title">${title}</div>
+                    <div class="web-page-snippet">${snippet}</div>
+                    <div class="web-page-url">${url}</div>
+                `;
+                
+                // Add click event to open the web page
+                webPageItem.addEventListener('click', () => {
+                    window.open(url, '_blank');
+                });
+                
+                webPagesContainer.appendChild(webPageItem);
+            }
+        });
+    } else {
+        // If no search data found, show a message
+        webPagesContainer.innerHTML = `
+            <div class="no-search-results">
+                <p>No web pages available for the current conversation.</p>
+            </div>
+        `;
+    }
+}
+
+function addSearchResultsEventListeners(searchResultsEl) {
+    // Add click handlers to all result links in the cloned search results
+    const resultLinks = searchResultsEl.querySelectorAll('.result-title, .url');
+    
+    resultLinks.forEach(link => {
+        // Only add event listener if it doesn't already have one
+        if (!link.hasAttribute('data-has-web-search-handler')) {
+            link.setAttribute('data-has-web-search-handler', 'true');
+            
+            link.addEventListener('click', (e) => {
+                e.preventDefault();
+                const url = link.getAttribute('href');
+                const title = link.classList.contains('result-title') ? link.textContent : link.previousElementSibling.previousElementSibling.textContent;
+                
+                // Add to read pages list
+                addToReadPagesList(url, title);
+                
+                // Load the webpage in the iframe
+                loadWebPageInSidebar(url, title);
+            });
+        }
+    });
+    
+    // Also handle the expandable sections
+    const expandableHeaders = searchResultsEl.querySelectorAll('.section-header.expandable');
+    expandableHeaders.forEach(header => {
+        if (!header.hasAttribute('data-has-expand-handler')) {
+            header.setAttribute('data-has-expand-handler', 'true');
+            
+            header.addEventListener('click', (e) => {
+                e.stopPropagation();
+                header.classList.toggle('expanded');
+                const content = header.nextElementSibling;
+                if (content && content.classList.contains('search-content')) {
+                    content.classList.toggle('visible');
+                }
+            });
+        }
+    });
+}
+
+function loadWebPageInSidebar(url, title) {
+    const iframe = document.getElementById('web-page-iframe');
+    const webPageContainer = document.querySelector('.web-page-view-container');
+    const searchResultsContainer = document.querySelector('.search-results-container');
+    const readPagesContainer = document.querySelector('.read-pages-container');
+    const webSearchSidebar = document.querySelector('.web-search-sidebar');
+    
+    // Make sure sidebar is open
+    if (!webSearchSidebar.classList.contains('active')) {
+        toggleWebSearchSidebar();
+    }
+    
+    // Set page title in header if available
+    const pageTitle = document.createElement('div');
+    pageTitle.className = 'current-page-title';
+    pageTitle.textContent = title || url;
+    
+    const webPageHeader = document.querySelector('.web-page-header');
+    const existingTitle = webPageHeader.querySelector('.current-page-title');
+    
+    if (existingTitle) {
+        webPageHeader.replaceChild(pageTitle, existingTitle);
+    } else {
+        webPageHeader.insertBefore(pageTitle, webPageHeader.querySelector('.open-in-new-tab-btn'));
+    }
+    
+    // Update the open in new tab button
+    document.querySelector('.open-in-new-tab-btn').onclick = () => {
+        window.open(url, '_blank');
+    };
+    
+    // Show loading indicator
+    const loadingIndicator = document.createElement('div');
+    loadingIndicator.className = 'iframe-loading-indicator';
+    loadingIndicator.innerHTML = `
+        <div class="spinner"></div>
+        <div>Loading page...</div>
+    `;
+    
+    webPageContainer.querySelector('.web-page-content').appendChild(loadingIndicator);
+    
+    // Update the iframe source
+    iframe.src = url;
+    
+    // Handle iframe load event
+    iframe.onload = () => {
+        // Remove loading indicator when iframe is loaded
+        const indicator = webPageContainer.querySelector('.iframe-loading-indicator');
+        if (indicator) {
+            indicator.remove();
+        }
+    };
+    
+    // Switch to the web page view
+    searchResultsContainer.classList.remove('active');
+    readPagesContainer.classList.remove('active');
+    webPageContainer.classList.add('active');
+}
+
+function updateReadPagesList() {
+    const readPagesList = document.querySelector('.read-pages-list');
+    
+    // Get read pages from localStorage
+    const readPages = getReadPages();
+    
+    // Clear the current list
+    readPagesList.innerHTML = '';
+    
+    if (readPages.length === 0) {
+        readPagesList.innerHTML = `
+            <div class="no-read-pages">
+                <p>No pages have been read yet.</p>
+                <p class="hint">When you click on search results, they will appear here for easy access.</p>
+            </div>
+        `;
+        return;
+    }
+    
+    // Add each read page to the list
+    readPages.forEach(page => {
+        const pageElement = document.createElement('div');
+        pageElement.className = 'read-page-item';
+        
+        // Format the URL for display
+        const domain = getDomainFromUrl(page.url);
+        const formattedDate = page.timestamp ? new Date(page.timestamp).toLocaleString() : '';
+        
+        pageElement.innerHTML = `
+            <div class="page-title">${page.title || 'Untitled Page'}</div>
+            <div class="page-meta">
+                <span class="page-domain">${domain}</span>
+                ${formattedDate ? `<span class="page-date">${formattedDate}</span>` : ''}
+            </div>
+            <div class="page-url">${page.url}</div>
+        `;
+        
+        // Add click event to load this page
+        pageElement.addEventListener('click', () => {
+            loadWebPageInSidebar(page.url, page.title);
+        });
+        
+        readPagesList.appendChild(pageElement);
+    });
+}
+
+function addToReadPagesList(url, title) {
+    // Get current read pages
+    const readPages = getReadPages();
+    
+    // Check if this URL is already in the list
+    const existingIndex = readPages.findIndex(page => page.url === url);
+    
+    if (existingIndex >= 0) {
+        // Move to the top of the list if already exists
+        const existingPage = readPages.splice(existingIndex, 1)[0];
+        readPages.unshift(existingPage);
+    } else {
+        // Add to the beginning of the list
+        readPages.unshift({
+            url,
+            title,
+            timestamp: Date.now()
+        });
+    }
+    
+    // Store back to localStorage (limit to 50 pages)
+    localStorage.setItem('readWebPages', JSON.stringify(readPages.slice(0, 50)));
+}
+
+function getReadPages() {
+    const pagesJson = localStorage.getItem('readWebPages');
+    return pagesJson ? JSON.parse(pagesJson) : [];
+}
+
+function getDomainFromUrl(url) {
+    try {
+        const hostname = new URL(url).hostname;
+        return hostname.replace(/^www\./, '');
+    } catch (e) {
+        return url;
+    }
+}
+
+function openWebPageInNewTab() {
+    const iframe = document.getElementById('web-page-iframe');
+    if (iframe.src) {
+        window.open(iframe.src, '_blank');
+    }
+}
+
+// Web Search sidebar initialization - call this in the initializeApp function
+function initWebSearchSidebar() {
+    // Make sure event listeners are set up
+    const webSearchToggle = document.querySelector('.web-search-toggle');
+    const closeSearchBtn = document.querySelector('.close-search-sidebar-btn');
+    
+    if (webSearchToggle) {
+        webSearchToggle.addEventListener('click', toggleWebSearchSidebar);
+    }
+    
+    if (closeSearchBtn) {
+        closeSearchBtn.addEventListener('click', closeWebSearchSidebar);
+    }
+} 
