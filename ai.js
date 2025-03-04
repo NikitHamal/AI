@@ -237,6 +237,9 @@ function initEventListeners() {
             }
         }, { passive: false });
     }
+    
+    // Add model select listeners
+    initModelSelectListeners();
 }
 
 // Handle scroll events for auto-scrolling
@@ -1241,7 +1244,9 @@ function saveSettings() {
 }
 
 function updateModelBadge() {
-    modelBadge.textContent = kimiConfig.model === 'k1' ? 'AI 1.5' : 'AI';
+    const modelName = document.querySelector('.model-name');
+    const selectedModel = document.getElementById('model-select').value;
+    modelName.textContent = selectedModel === 'kimi' ? 'AI' : 'AI 1.5';
 }
 
 // Load settings from localStorage
@@ -1711,6 +1716,76 @@ function displayRecommendedPrompts(prompts) {
         });
         scrollToBottom();
     }
+}
+
+// Add these functions to handle the model selection modal
+function openModelSelectModal() {
+    const modal = document.getElementById('model-select-modal');
+    modal.classList.add('active');
+    
+    // Update selected state
+    const currentModel = document.getElementById('model-select').value;
+    document.querySelectorAll('.model-card').forEach(card => {
+        if (card.dataset.model === currentModel) {
+            card.classList.add('selected');
+        } else {
+            card.classList.remove('selected');
+        }
+    });
+}
+
+function closeModelSelectModal() {
+    document.getElementById('model-select-modal').classList.remove('active');
+}
+
+function initModelSelectListeners() {
+    // Remove any existing click listener first to prevent doubles
+    const modelSelector = document.getElementById('model-selector');
+    const newListener = () => openModelSelectModal();
+    
+    // Remove old listeners
+    modelSelector.removeEventListener('click', newListener);
+    // Add new listener
+    modelSelector.addEventListener('click', newListener);
+    
+    // Add close button listener
+    const closeButton = document.querySelector('#model-select-modal .close-modal');
+    closeButton.removeEventListener('click', closeModelSelectModal);
+    closeButton.addEventListener('click', closeModelSelectModal);
+    
+    // Add model card selection listeners
+    document.querySelectorAll('.model-card').forEach(card => {
+        const cardListener = () => {
+            const selectedModel = card.dataset.model;
+            
+            // Remove selected class from all cards
+            document.querySelectorAll('.model-card').forEach(c => c.classList.remove('selected'));
+            
+            // Add selected class to clicked card
+            card.classList.add('selected');
+            
+            // Update the hidden select value
+            document.getElementById('model-select').value = selectedModel;
+            
+            // Update the model badge
+            updateModelBadge();
+            
+            // Save settings
+            saveSettings();
+            
+            // Add selection animation
+            card.style.animation = 'selectPulse 0.5s';
+            setTimeout(() => {
+                card.style.animation = '';
+                closeModelSelectModal();
+            }, 500);
+        };
+        
+        // Remove old listeners
+        card.removeEventListener('click', cardListener);
+        // Add new listener
+        card.addEventListener('click', cardListener);
+    });
 }
 
 // Initialize dev tools

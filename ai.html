@@ -50,8 +50,9 @@
                 <div class="header-content">
                     <h1>AI Chat</h1>
                     <div class="model-info">
-                        <div class="model-badge">AI</div>
-                        <div class="model-status">Ready</div>
+                        <button class="model-badge" id="model-selector">
+                            <span class="model-name">AI</span>
+                        </button>
                     </div>
                 </div>
             </header>
@@ -180,6 +181,48 @@
             <div class="modal-footer">
                 <button class="secondary-btn" id="cancel-delete">Cancel</button>
                 <button id="confirm-delete" class="danger-btn">Delete All</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model Selection Modal -->
+    <div class="modal" id="model-select-modal">
+        <div class="modal-content model-select-content">
+            <div class="modal-header">
+                <h2>Select AI Model</h2>
+                <button class="close-modal" aria-label="Close model selection">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                </button>
+            </div>
+            <div class="modal-body">
+                <div class="model-cards">
+                    <button class="model-card" data-model="kimi">
+                        <div class="model-card-header">
+                            <div class="model-icon">AI</div>
+                            <div class="model-status-badge">Current</div>
+                        </div>
+                        <h3>AI Assistant</h3>
+                        <p>General purpose AI model optimized for everyday tasks and conversations.</p>
+                        <ul class="model-features">
+                            <li>Fast and efficient responses</li>
+                            <li>Balanced performance</li>
+                            <li>Great for general tasks</li>
+                        </ul>
+                    </button>
+                    
+                    <button class="model-card" data-model="k1">
+                        <div class="model-card-header">
+                            <div class="model-icon advanced">1.5</div>
+                        </div>
+                        <h3>AI Assistant 1.5</h3>
+                        <p>Advanced model with enhanced reasoning and complex problem-solving abilities.</p>
+                        <ul class="model-features">
+                            <li>Advanced reasoning</li>
+                            <li>Complex problem solving</li>
+                            <li>Deeper understanding</li>
+                        </ul>
+                    </button>
+                </div>
             </div>
         </div>
     </div>
